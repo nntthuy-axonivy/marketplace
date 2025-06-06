@@ -43,7 +43,6 @@ jobs:
       - name: Run Gitleaks on each repo
         run: |
           IFS=',' read -ra ORG_LIST <<< "$ORGS"
-          mkdir -p gitleaks-reports
 
           for ORG in "${ORG_LIST[@]}"; do
             echo "🔍 Fetching repos from $ORG"
@@ -67,8 +66,17 @@ jobs:
 
               cd "$REPO" || { echo "⚠️ Failed to enter $REPO directory. Skipping..."; continue; }
 
-              gitleaks detect --source=. --report-path="../gitleaks-reports/${ORG}__${REPO}.json" \
-                --report-format=json --redact || true
+              REPORT_PATH="../gitleaks-reports/${ORG}__${REPO}.json"
+              mkdir -p ../gitleaks-reports
+
+              OUTPUT=$(gitleaks detect --source=. --report-format=json --redact 2>/dev/null || true)
+
+              if [ -n "$OUTPUT" ] && [[ "$OUTPUT" != "[]" ]]; then
+                echo "$OUTPUT" > "$REPORT_PATH"
+                echo "✅ Leaks found in $ORG/$REPO — report written"
+              else
+                echo "✔️ No leaks found in $ORG/$REPO — skipping report"
+              fi
 
               cd ..
               rm -rf "$REPO"

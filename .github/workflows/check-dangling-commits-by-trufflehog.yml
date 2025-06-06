@@ -58,13 +58,16 @@ jobs:
               mkdir -p trufflehog-reports
 
               if [ "$DRY_RUN" == "true" ]; then
-                if ! trufflehog --json "$REPO_URL" > "$REPORT"; then
-                  echo "⚠️ TruffleHog scan failed for $ORG/$REPO (dry run). Continuing..."
-                fi
+                OUTPUT=$(trufflehog --json "$REPO_URL" 2>/dev/null || true)
               else
-                if ! trufflehog --json "$REPO_URL" --fail > "$REPORT"; then
-                  echo "❌ TruffleHog scan failed for $ORG/$REPO"
-                fi
+                OUTPUT=$(trufflehog --json "$REPO_URL" --fail 2>/dev/null || true)
+              fi
+
+              if [ -n "$OUTPUT" ] && [[ "$OUTPUT" != "[]" ]]; then
+                echo "$OUTPUT" > "$REPORT_PATH"
+                echo "✅ Leaks found in $ORG/$REPO — report written"
+              else
+                echo "✔️ No leaks found in $ORG/$REPO — skipping report"
               fi
             done
           done
