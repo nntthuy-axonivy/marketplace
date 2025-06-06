@@ -39,15 +39,18 @@ jobs:
         run: |
           IFS=',' read -ra ORG_LIST <<< "$ORGS"
 
+          echo "📦 Found ${#REPO_LIST[@]} repositories in $ORG"
+
           for ORG in "${ORG_LIST[@]}"; do
             echo "🔍 Fetching repos from $ORG"
+
+            mkdir -p trufflehog-reports
+
             if [ -n "$REPOS" ]; then
               IFS=',' read -ra REPO_LIST <<< "$REPOS"
             else
               mapfile -t REPO_LIST < <(gh repo list "$ORG" --limit 1000 --json name -q '.[].name')
             fi
-
-            echo "📦 Found ${#REPO_LIST[@]} repositories in $ORG"
 
             for REPO in "${REPO_LIST[@]}"; do
               echo "🚨 Scanning $ORG/$REPO ..."
@@ -55,20 +58,13 @@ jobs:
               REPO_URL="https://github.com/$ORG/$REPO.git"
               REPORT="trufflehog-reports/${ORG}__${REPO}.json"
 
-              mkdir -p trufflehog-reports
-
               if [ "$DRY_RUN" == "true" ]; then
-                OUTPUT=$(trufflehog --json "$REPO_URL" 2>/dev/null || true)
+                trufflehog --json "$REPO_URL" > "$REPORT" || true
               else
-                OUTPUT=$(trufflehog --json "$REPO_URL" --fail 2>/dev/null || true)
+                trufflehog --json "$REPO_URL" --fail > "$REPORT"
               fi
 
-              if [ -n "$OUTPUT" ] && [[ "$OUTPUT" != "[]" ]]; then
-                echo "$OUTPUT" > "$REPORT_PATH"
-                echo "✅ Leaks found in $ORG/$REPO — report written"
-              else
-                echo "✔️ No leaks found in $ORG/$REPO — skipping report"
-              fi
+              cd ..
             done
           done
           echo "✅ TruffleHog scanning complete. Reports are in trufflehog-reports/"

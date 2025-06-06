@@ -44,8 +44,12 @@ jobs:
         run: |
           IFS=',' read -ra ORG_LIST <<< "$ORGS"
 
+          echo "📦 Found ${#REPO_LIST[@]} repositories in $ORG"
+
           for ORG in "${ORG_LIST[@]}"; do
             echo "🔍 Fetching repos from $ORG"
+
+             mkdir -p gitleaks-reports
 
             if [ -n "$REPOS" ]; then
               IFS=',' read -ra REPO_LIST <<< "$REPOS"
@@ -53,30 +57,14 @@ jobs:
               mapfile -t REPO_LIST < <(gh repo list "$ORG" --limit 1000 --json name -q '.[].name')
             fi
 
-            echo "📦 Found ${#REPO_LIST[@]} repositories in $ORG"
-
             for REPO in "${REPO_LIST[@]}"; do
               echo "🚨 Scanning $ORG/$REPO ..."
               rm -rf "$REPO"
-              
-              if ! git clone https://github.com/$ORG/$REPO.git; then
-                echo "⚠️ Failed to clone $ORG/$REPO. Skipping..."
-                continue
-              fi
+              git clone https://github.com/$ORG/$REPO.git
+              cd "$REPO"
 
-              cd "$REPO" || { echo "⚠️ Failed to enter $REPO directory. Skipping..."; continue; }
-
-              REPORT_PATH="../gitleaks-reports/${ORG}__${REPO}.json"
-              mkdir -p ../gitleaks-reports
-
-              OUTPUT=$(gitleaks detect --source=. --report-format=json --redact 2>/dev/null || true)
-
-              if [ -n "$OUTPUT" ] && [[ "$OUTPUT" != "[]" ]]; then
-                echo "$OUTPUT" > "$REPORT_PATH"
-                echo "✅ Leaks found in $ORG/$REPO — report written"
-              else
-                echo "✔️ No leaks found in $ORG/$REPO — skipping report"
-              fi
+              gitleaks detect --source=. --report-path="../gitleaks-reports/${ORG}__${REPO}.json" \
+                --report-format=json --redact || true
 
               cd ..
               rm -rf "$REPO"
