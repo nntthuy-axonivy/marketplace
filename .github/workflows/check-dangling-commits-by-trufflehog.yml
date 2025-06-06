@@ -45,7 +45,7 @@ jobs:
             if [ -n "$REPOS" ]; then
               IFS=',' read -ra REPO_LIST <<< "$REPOS"
             else
-              REPO_LIST=$(gh repo list "$ORG" --limit 1000 --json name -q '.[].name')
+              mapfile -t REPO_LIST < <(gh repo list "$ORG" --limit 1000 --json name -q '.[].name')
             fi
 
             for REPO in "${REPO_LIST[@]}"; do
