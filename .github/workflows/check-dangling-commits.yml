@@ -1,0 +1,76 @@
+name: Checking dangling commits
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Only log issues without failing or pushing'
+        default: 'true'
+      workingOrgs:
+        description: 'Comma-separated orgs to scan'
+        default: 'axonivy-market'
+      workingRepos:
+        description: 'Comma-separated list of repo names (optional)'
+        default: ''
+
+jobs:
+  gitleaks-scan:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+    steps:
+      - name: Checkout (for workflow context)
+        uses: actions/checkout@v4
+
+      - name: Install Gitleaks
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r '.tag_name')
+          curl -sL "https://github.com/gitleaks/gitleaks/releases/download/${VERSION}/gitleaks_${VERSION#v}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz
+          chmod +x gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Prepare inputs
+        id: prep
+        run: |
+          echo "DRY_RUN=${{ github.event.inputs.dryRun || 'true' }}" >> $GITHUB_ENV
+          echo "ORGS=${{ github.event.inputs.workingOrgs || 'axonivy-market' }}" >> $GITHUB_ENV
+          echo "REPOS=${{ github.event.inputs.workingRepos || '' }}" >> $GITHUB_ENV
+
+      - name: Run Gitleaks on each repo
+        run: |
+          IFS=',' read -ra ORG_LIST <<< "$ORGS"
+          mkdir -p gitleaks-reports
+
+          for ORG in "${ORG_LIST[@]}"; do
+            echo "🔍 Fetching repos from $ORG"
+
+            if [ -n "$REPOS" ]; then
+              IFS=',' read -ra REPO_LIST <<< "$REPOS"
+            else
+              REPO_LIST=$(gh repo list "$ORG" --limit 1000 --json name -q '.[].name')
+            fi
+
+            for REPO in "${REPO_LIST[@]}"; do
+              echo "🚨 Scanning $ORG/$REPO ..."
+              rm -rf "$REPO"
+              git clone https://github.com/$ORG/$REPO.git
+              cd "$REPO"
+
+              gitleaks detect --source=. --report-path="../gitleaks-reports/${ORG}__${REPO}.json" \
+                --report-format=json --redact || true
+
+              cd ..
+              rm -rf "$REPO"
+            done
+          done
+          echo "✅ Secret scanning complete. Reports are in gitleaks-reports/"
+
+      - name: Upload Gitleaks Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-reports
+          path: gitleaks-reports/
