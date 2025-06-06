@@ -38,7 +38,6 @@ jobs:
       - name: Run TruffleHog on each repo
         run: |
           IFS=',' read -ra ORG_LIST <<< "$ORGS"
-          mkdir -p trufflehog-reports
 
           for ORG in "${ORG_LIST[@]}"; do
             echo "🔍 Fetching repos from $ORG"
@@ -54,13 +53,17 @@ jobs:
               REPO_URL="https://github.com/$ORG/$REPO.git"
               REPORT="trufflehog-reports/${ORG}__${REPO}.json"
 
-              if [ "$DRY_RUN" == "true" ]; then
-                trufflehog --json "$REPO_URL" > "$REPORT" || true
-              else
-                trufflehog --json "$REPO_URL" --fail > "$REPORT"
-              fi
+              mkdir -p trufflehog-reports
 
-              cd ..
+              if [ "$DRY_RUN" == "true" ]; then
+                if ! trufflehog --json "$REPO_URL" > "$REPORT"; then
+                  echo "⚠️ TruffleHog scan failed for $ORG/$REPO (dry run). Continuing..."
+                fi
+              else
+                if ! trufflehog --json "$REPO_URL" --fail > "$REPORT"; then
+                  echo "❌ TruffleHog scan failed for $ORG/$REPO"
+                fi
+              fi
             done
           done
           echo "✅ TruffleHog scanning complete. Reports are in trufflehog-reports/"

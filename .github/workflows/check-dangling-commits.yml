@@ -57,8 +57,13 @@ jobs:
             for REPO in "${REPO_LIST[@]}"; do
               echo "🚨 Scanning $ORG/$REPO ..."
               rm -rf "$REPO"
-              git clone https://github.com/$ORG/$REPO.git
-              cd "$REPO"
+              
+              if ! git clone https://github.com/$ORG/$REPO.git; then
+                echo "⚠️ Failed to clone $ORG/$REPO. Skipping..."
+                continue
+              fi
+
+              cd "$REPO" || { echo "⚠️ Failed to enter $REPO directory. Skipping..."; continue; }
 
               gitleaks detect --source=. --report-path="../gitleaks-reports/${ORG}__${REPO}.json" \
                 --report-format=json --redact || true
