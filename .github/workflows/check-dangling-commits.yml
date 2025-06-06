@@ -54,6 +54,8 @@ jobs:
               mapfile -t REPO_LIST < <(gh repo list "$ORG" --limit 1000 --json name -q '.[].name')
             fi
 
+            echo "📦 Found ${#REPO_LIST[@]} repositories in $ORG"
+
             for REPO in "${REPO_LIST[@]}"; do
               echo "🚨 Scanning $ORG/$REPO ..."
               rm -rf "$REPO"
