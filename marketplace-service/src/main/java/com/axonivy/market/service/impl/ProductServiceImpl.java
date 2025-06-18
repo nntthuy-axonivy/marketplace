@@ -458,7 +458,7 @@ public class ProductServiceImpl implements ProductService {
       getMetadataContent(mavenArtifact, product, nonSyncReleasedVersions);
     }
     metadataService.updateArtifactAndMetadata(product.getId(), nonSyncReleasedVersions, product.getArtifacts());
-    externalDocumentService.syncDocumentForProduct(product.getId(), false);
+    externalDocumentService.syncDocumentForProduct(product.getId(), false, null);
   }
 
   private void getMetadataContent(Artifact artifact, Product product, List<String> nonSyncReleasedVersions) {
@@ -619,15 +619,13 @@ public class ProductServiceImpl implements ProductService {
     List<MavenArtifactVersion> mavenArtifactVersions = mavenArtifactVersionRepository.findByProductId(id);
 
     if (ObjectUtils.isNotEmpty(mavenArtifactVersions)) {
-      versions = VersionUtils.extractAllVersions(mavenArtifactVersions, BooleanUtils.isTrue(isShowDevVersion),
-          StringUtils.EMPTY);
+      versions = VersionUtils.extractAllVersions(mavenArtifactVersions, BooleanUtils.isTrue(isShowDevVersion));
       version = CollectionUtils.firstElement(versions);
     }
 
     // Cover exception case of employee onboarding without any product.json file
     if (StringUtils.isBlank(version)) {
-      versions = VersionUtils.getVersionsToDisplay(productRepo.getReleasedVersionsById(id), isShowDevVersion,
-          StringUtils.EMPTY);
+      versions = VersionUtils.getVersionsToDisplay(productRepo.getReleasedVersionsById(id), isShowDevVersion);
       version = CollectionUtils.firstElement(versions);
     }
 
@@ -751,7 +749,7 @@ public class ProductServiceImpl implements ProductService {
    * ex: 11.0+ , 10.0 - 12.0+ , ...
    */
   private String getCompatibilityRange(String productId, Boolean isDeprecatedProduct) {
-    return Optional.of(versionService.getVersionsForDesigner(productId, null))
+    return Optional.of(versionService.getVersionsForDesigner(productId, true, null))
         .filter(ObjectUtils::isNotEmpty)
         .map(versions -> versions.stream().map(VersionAndUrlModel::getVersion).toList())
         .map(versions -> VersionUtils.getCompatibilityRangeFromVersions(versions, isDeprecatedProduct)).orElse(null);
