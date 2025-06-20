@@ -13,9 +13,6 @@ on:
 jobs:
   gitleaks-scan:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
     steps:
       - name: Checkout (for workflow context)
         uses: actions/checkout@v4
@@ -67,7 +64,7 @@ jobs:
                 mv "$TEMP_REPORT" "$FINAL_REPORT"
                 echo "✅ Report saved for $ORG/$REPO"
               else
-                echo "ℹ️ No secrets found in $ORG/$REPO, skipping report"
+                echo "ℹ️ No secrets found in $ORG/$REPO"
                 rm -f "$TEMP_REPORT"
               fi
 

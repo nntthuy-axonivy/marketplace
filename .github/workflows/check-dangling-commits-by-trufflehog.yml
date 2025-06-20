@@ -16,9 +16,6 @@ on:
 jobs:
   truffle-scan:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
     steps:
       - name: Checkout (for workflow context)
         uses: actions/checkout@v4
