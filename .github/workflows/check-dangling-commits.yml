@@ -59,11 +59,21 @@ jobs:
               fi
               cd "$REPO"
 
-              gitleaks detect --source=. --report-path="../gitleaks-reports/${ORG}__${REPO}.json" \
+              TEMP_REPORT="../gitleaks-reports/tmp-${ORG}__${REPO}.json"
+              FINAL_REPORT="../gitleaks-reports/${ORG}__${REPO}.json"
+              gitleaks detect --source=. --report-path="$TEMP_REPORT" \
                 --report-format=json --redact || true
 
               cd ..
               rm -rf "$REPO"
+
+              if [ -s "$TEMP_REPORT" ] && [ "$(jq length "$TEMP_REPORT")" -gt 0 ]; then
+                mv "$TEMP_REPORT" "$FINAL_REPORT"
+                echo "✅ Report saved for $ORG/$REPO"
+              else
+                echo "ℹ️ No secrets found in $ORG/$REPO, skipping report"
+                rm -f "$TEMP_REPORT"
+              fi
             done
           done
           echo "✅ Secret scanning complete!"
