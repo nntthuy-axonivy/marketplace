@@ -35,7 +35,7 @@ jobs:
           echo "ORGS=${{ github.event.inputs.workingOrgs || 'axonivy-market' }}" >> $GITHUB_ENV
           echo "REPOS=${{ github.event.inputs.workingRepos || '' }}" >> $GITHUB_ENV
 
-      - name: Run TruffleHog on each repo
+      - name: Run TruffleHog scanning
         run: |
           IFS=',' read -ra ORG_LIST <<< "$ORGS"
 
@@ -53,7 +53,8 @@ jobs:
               echo "🚨 Scanning $ORG/$REPO ..."
                rm -rf "$REPO"
               REPO_URL="https://github.com/$ORG/$REPO.git"
-              REPORT="trufflehog-reports/${ORG}__${REPO}.json"
+              TEMP_REPORT="trufflehog-reports/tmp-${ORG}__${REPO}.json"
+              FINAL_REPORT="trufflehog-reports/${ORG}__${REPO}.json"
 
               mkdir -p trufflehog-reports
 
@@ -62,9 +63,16 @@ jobs:
               else
                 trufflehog --json "$REPO_URL" --fail > "$REPORT"
               fi
+
+              if [ -s "$TEMP_REPORT" ] && [ "$(cat "$TEMP_REPORT" | jq length)" -gt 0 ]; then
+                mv "$TEMP_REPORT" "$FINAL_REPORT"
+              else
+                echo "ℹ️ No secrets found in $ORG/$REPO, skipping report"
+                rm -f "$TEMP_REPORT"
+              fi
             done
           done
-          echo "✅ TruffleHog scanning complete. Reports are in trufflehog-reports/"
+          echo "✅ TruffleHog scanning complete!"
 
       - name: Upload TruffleHog Reports
         uses: actions/upload-artifact@v4

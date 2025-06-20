@@ -34,7 +34,7 @@ jobs:
           echo "ORGS=${{ github.event.inputs.workingOrgs || 'axonivy-market' }}" >> $GITHUB_ENV
           echo "REPOS=${{ github.event.inputs.workingRepos || '' }}" >> $GITHUB_ENV
 
-      - name: Run Gitleaks on each repo
+      - name: Run Gitleaks scanning
         run: |
           IFS=',' read -ra ORG_LIST <<< "$ORGS"
           mkdir -p gitleaks-reports
