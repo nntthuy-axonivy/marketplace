@@ -1,8 +1,13 @@
 name: Checking commits by trufflehog
 
 on:
+  schedule:
+    - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
+      dryRun:
+        description: 'Only log issues without failing or pushing'
+        default: 'true'
       workingOrgs:
         description: 'Comma-separated orgs to scan'
         default: 'axonivy-market'
@@ -26,10 +31,11 @@ jobs:
       - name: Prepare inputs
         id: prep
         run: |
+          echo "DRY_RUN=${{ github.event.inputs.dryRun || 'true' }}" >> $GITHUB_ENV
           echo "ORGS=${{ github.event.inputs.workingOrgs || 'axonivy-market' }}" >> $GITHUB_ENV
           echo "REPOS=${{ github.event.inputs.workingRepos || '' }}" >> $GITHUB_ENV
 
-      - name: Run TruffleHog scanning
+      - name: Run TruffleHog on each repo
         run: |
           IFS=',' read -ra ORG_LIST <<< "$ORGS"
 
@@ -58,7 +64,7 @@ jobs:
               fi
             done
           done
-          echo "✅ TruffleHog scanning complete!"
+          echo "✅ TruffleHog scanning complete. Reports are in trufflehog-reports/"
 
       - name: Upload TruffleHog Reports
         uses: actions/upload-artifact@v4
