@@ -1,8 +1,6 @@
 name: Checking commits by trufflehog
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
       workingOrgs:
@@ -34,7 +32,6 @@ jobs:
       - name: Run TruffleHog scanning
         run: |
           IFS=',' read -ra ORG_LIST <<< "$ORGS"
-          mkdir -p trufflehog-reports
 
           for ORG in "${ORG_LIST[@]}"; do
             echo "🔍 Fetching repos from $ORG"
@@ -48,23 +45,16 @@ jobs:
             echo "📦 Found ${#REPO_LIST[@]} repositories in $ORG"
             for REPO in "${REPO_LIST[@]}"; do
               echo "🚨 Scanning $ORG/$REPO ..."
-              rm -rf "$REPO"
+               rm -rf "$REPO"
               REPO_URL="https://github.com/$ORG/$REPO.git"
-              TEMP_REPORT="tmp-${ORG}__${REPO}.json"
-              FINAL_REPORT="trufflehog-reports/${ORG}__${REPO}.json"
               REPORT="trufflehog-reports/${ORG}__${REPO}.json"
 
-              if ! trufflehog --json "$REPO_URL" > "$TEMP_REPORT" 2>/dev/null; then
-                echo "❌ Failed to scan $ORG/$REPO. Skipping..."
-                continue
-              fi
+              mkdir -p trufflehog-reports
 
-              if [ -s "$TEMP_REPORT" ]; then
-                mv "$TEMP_REPORT" "$FINAL_REPORT"
-                echo "🧨 Leaks found in $ORG/$REPO"
+              if [ "$DRY_RUN" == "true" ]; then
+                trufflehog --json "$REPO_URL" > "$REPORT" || true
               else
-                echo "✅ No leaks in $ORG/$REPO"
-                rm "$TEMP_REPORT"
+                trufflehog --json "$REPO_URL" --fail > "$REPORT"
               fi
             done
           done

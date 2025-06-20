@@ -34,7 +34,7 @@ jobs:
           echo "ORGS=${{ github.event.inputs.workingOrgs || 'axonivy-market' }}" >> $GITHUB_ENV
           echo "REPOS=${{ github.event.inputs.workingRepos || '' }}" >> $GITHUB_ENV
 
-      - name: Run Gitleaks scanning
+      - name: Run Gitleaks on each repo
         run: |
           IFS=',' read -ra ORG_LIST <<< "$ORGS"
           mkdir -p gitleaks-reports
@@ -59,18 +59,11 @@ jobs:
               fi
               cd "$REPO"
 
-              TEMP_REPORT="../gitleaks-reports/tmp-${ORG}__${REPO}.json"
-              FINAL_REPORT="../gitleaks-reports/${ORG}__${REPO}.json"
-              gitleaks detect --source=. --report-path="$TEMP_REPORT" \
+              gitleaks detect --source=. --report-path="../gitleaks-reports/${ORG}__${REPO}.json" \
                 --report-format=json --redact || true
 
-              if [ -s "$TEMP_REPORT" ] && [ "$(jq length "$TEMP_REPORT")" -gt 0 ]; then
-                mv "$TEMP_REPORT" "$FINAL_REPORT"
-                echo "🧨 Leaks found in $ORG/$REPO"
-              else
-                echo "✅ No leaks in $ORG/$REPO"
-                rm -f "$TEMP_REPORT"
-              fi
+              cd ..
+              rm -rf "$REPO"
             done
           done
           echo "✅ Secret scanning complete!"
