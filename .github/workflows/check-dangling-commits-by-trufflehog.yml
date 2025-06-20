@@ -1,8 +1,6 @@
-name: Checking commits by trufflehog
+name: Checking dangling commits by Trufflehog
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
       dryRun:
@@ -25,11 +23,8 @@ jobs:
       - name: Checkout (for workflow context)
         uses: actions/checkout@v4
 
-      - name: Install TruffleHog v3+
-        run: |
-          curl -L https://github.com/trufflesecurity/trufflehog/releases/latest/download/trufflehog-linux-amd64 -o trufflehog
-          chmod +x trufflehog
-          sudo mv trufflehog /usr/local/bin/
+      - name: Install TruffleHog
+        run: pip install trufflehog
 
       - name: Prepare inputs
         id: prep
@@ -56,8 +51,7 @@ jobs:
               echo "🚨 Scanning $ORG/$REPO ..."
                rm -rf "$REPO"
               REPO_URL="https://github.com/$ORG/$REPO.git"
-              TEMP_REPORT="trufflehog-reports/tmp-${ORG}__${REPO}.json"
-              FINAL_REPORT="trufflehog-reports/${ORG}__${REPO}.json"
+              REPORT="trufflehog-reports/${ORG}__${REPO}.json"
 
               mkdir -p trufflehog-reports
 
@@ -65,13 +59,6 @@ jobs:
                 trufflehog --json "$REPO_URL" > "$REPORT" || true
               else
                 trufflehog --json "$REPO_URL" --fail > "$REPORT"
-              fi
-
-              if [ -s "$TEMP_REPORT" ] && [ "$(cat "$TEMP_REPORT" | jq length)" -gt 0 ]; then
-                mv "$TEMP_REPORT" "$FINAL_REPORT"
-              else
-                echo "ℹ️ No secrets found in $ORG/$REPO, skipping report"
-                rm -f "$TEMP_REPORT"
               fi
             done
           done
