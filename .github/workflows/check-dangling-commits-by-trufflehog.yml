@@ -5,9 +5,6 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
-      dryRun:
-        description: 'Only log issues without failing or pushing'
-        default: 'true'
       workingOrgs:
         description: 'Comma-separated orgs to scan'
         default: 'axonivy-market'
@@ -31,13 +28,13 @@ jobs:
       - name: Prepare inputs
         id: prep
         run: |
-          echo "DRY_RUN=${{ github.event.inputs.dryRun || 'true' }}" >> $GITHUB_ENV
           echo "ORGS=${{ github.event.inputs.workingOrgs || 'axonivy-market' }}" >> $GITHUB_ENV
           echo "REPOS=${{ github.event.inputs.workingRepos || '' }}" >> $GITHUB_ENV
 
-      - name: Run TruffleHog on each repo
+      - name: Run TruffleHog scanning
         run: |
           IFS=',' read -ra ORG_LIST <<< "$ORGS"
+          mkdir -p trufflehog-reports
 
           for ORG in "${ORG_LIST[@]}"; do
             echo "🔍 Fetching repos from $ORG"
@@ -51,20 +48,27 @@ jobs:
             echo "📦 Found ${#REPO_LIST[@]} repositories in $ORG"
             for REPO in "${REPO_LIST[@]}"; do
               echo "🚨 Scanning $ORG/$REPO ..."
-               rm -rf "$REPO"
+              rm -rf "$REPO"
               REPO_URL="https://github.com/$ORG/$REPO.git"
+              TEMP_REPORT="tmp-${ORG}__${REPO}.json"
+              FINAL_REPORT="trufflehog-reports/${ORG}__${REPO}.json"
               REPORT="trufflehog-reports/${ORG}__${REPO}.json"
 
-              mkdir -p trufflehog-reports
+              if ! trufflehog --json "$REPO_URL" > "$TEMP_REPORT" 2>/dev/null; then
+                echo "❌ Failed to scan $ORG/$REPO. Skipping..."
+                continue
+              fi
 
-              if [ "$DRY_RUN" == "true" ]; then
-                trufflehog --json "$REPO_URL" > "$REPORT" || true
+              if [ -s "$TEMP_REPORT" ]; then
+                mv "$TEMP_REPORT" "$FINAL_REPORT"
+                echo "🧨 Leaks found in $ORG/$REPO"
               else
-                trufflehog --json "$REPO_URL" --fail > "$REPORT"
+                echo "✅ No leaks in $ORG/$REPO"
+                rm "$TEMP_REPORT"
               fi
             done
           done
-          echo "✅ TruffleHog scanning complete. Reports are in trufflehog-reports/"
+          echo "✅ TruffleHog scanning complete!"
 
       - name: Upload TruffleHog Reports
         uses: actions/upload-artifact@v4
