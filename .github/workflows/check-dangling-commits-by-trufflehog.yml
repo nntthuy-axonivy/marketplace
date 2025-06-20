@@ -25,8 +25,11 @@ jobs:
       - name: Checkout (for workflow context)
         uses: actions/checkout@v4
 
-      - name: Install TruffleHog
-        run: pip install trufflehog
+      - name: Install TruffleHog v3+
+        run: |
+          curl -L https://github.com/trufflesecurity/trufflehog/releases/latest/download/trufflehog-linux-amd64 -o trufflehog
+          chmod +x trufflehog
+          sudo mv trufflehog /usr/local/bin/
 
       - name: Prepare inputs
         id: prep
